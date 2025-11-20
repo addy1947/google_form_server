@@ -23,16 +23,25 @@ app.post('/api/answer', async (req, res) => {
     if (!GEMINI_KEY || GEMINI_KEY === 'YOUR_API_KEY_HERE') {
         const results = questions.map(q => ({
             questionId: q.id || null,
+            questionType: q.type,
             gemini: { ok: false, error: 'No GEMINI_KEY - fallback used' },
-            answer: Array.isArray(q.options) && q.options.length ? q.options[0] : null,
+            answer: Array.isArray(q.options) && q.options.length ? q.options[0] : (q.type === 'text' ? '' : null),
             fallback: true,
         }));
         return res.json({ received: true, results });
     }
-    const prompt = `You are given multiple multiple-choice questions in JSON format.
+    const prompt = `You are given questions in JSON format. Each question has a "type" field that can be:
+                    - "multiple_choice": Select one option from the provided options
+                    - "checkbox": Select one or more options from the provided options (answer should be an array)
+                    - "dropdown": Select one option from the provided options
+                    - "text": Provide a text answer (no options provided)
+
                     Respond with a JSON array containing objects with ONLY two keys: "id" and "answer".
                     The "id" must match the input question id exactly.
-                    The "answer" must be exactly one of the provided options for that question.
+                    
+                    For multiple_choice, dropdown: "answer" must be exactly one of the provided options.
+                    For checkbox: "answer" should be an array with one or more of the provided options.
+                    For text: "answer" should be a relevant text response.
 
                     Input questions:
                     ${JSON.stringify(questions, null, 2)}
@@ -40,7 +49,8 @@ app.post('/api/answer', async (req, res) => {
                     Respond ONLY with a JSON array in this exact format:
                     [
                     {"id": "question_id_1", "answer": "option text"},
-                    {"id": "question_id_2", "answer": "option text"}
+                    {"id": "question_id_2", "answer": ["option1", "option2"]},
+                    {"id": "question_id_3", "answer": "text response"}
                     ]
 
                     Do not include any explanations, markdown formatting, or extra text.`;
@@ -79,6 +89,7 @@ app.post('/api/answer', async (req, res) => {
                 if (geminiAnswer && geminiAnswer.answer) {
                     results.push({
                         questionId: q.id,
+                        questionType: q.type,
                         gemini: { ok: true, parsed: geminiAnswer },
                         answer: geminiAnswer.answer,
                         fallback: false,
@@ -86,8 +97,9 @@ app.post('/api/answer', async (req, res) => {
                 } else {
                     results.push({
                         questionId: q.id,
+                        questionType: q.type,
                         gemini: { ok: false, error: 'No answer from Gemini for this question' },
-                        answer: Array.isArray(q.options) && q.options.length ? q.options[0] : null,
+                        answer: Array.isArray(q.options) && q.options.length ? q.options[0] : (q.type === 'text' ? '' : null),
                         fallback: true,
                     });
                 }
@@ -96,8 +108,9 @@ app.post('/api/answer', async (req, res) => {
             for (const q of questions) {
                 results.push({
                     questionId: q.id,
+                    questionType: q.type,
                     gemini: { ok: false, error: 'Failed to parse Gemini response' },
-                    answer: Array.isArray(q.options) && q.options.length ? q.options[0] : null,
+                    answer: Array.isArray(q.options) && q.options.length ? q.options[0] : (q.type === 'text' ? '' : null),
                     fallback: true,
                 });
             }
@@ -106,13 +119,14 @@ app.post('/api/answer', async (req, res) => {
     } catch (err) {
         const results = questions.map(q => ({
             questionId: q.id || null,
+            questionType: q.type,
             gemini: {
                 ok: false,
                 error: err.message,
                 status: err.response?.status,
                 data: err.response?.data,
             },
-            answer: Array.isArray(q.options) && q.options.length ? q.options[0] : null,
+            answer: Array.isArray(q.options) && q.options.length ? q.options[0] : (q.type === 'text' ? '' : null),
             fallback: true,
         }));
         res.json({ received: true, results });
