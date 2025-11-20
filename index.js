@@ -41,7 +41,9 @@ app.post('/api/answer', async (req, res) => {
                     
                     For multiple_choice, dropdown: "answer" must be exactly one of the provided options.
                     For checkbox: "answer" should be an array with one or more of the provided options.
-                    For text: "answer" should be a relevant text response.
+                    For text questions: 
+                      - If the question asks for personal information like Name, Enrollment Number, Roll Number, Email, Phone, Address, Class, Group, ID, Registration, Student Number, etc., return an empty string "".
+                      - Otherwise, provide a relevant factual answer based on the question content.
 
                     Input questions:
                     ${JSON.stringify(questions, null, 2)}
@@ -50,7 +52,8 @@ app.post('/api/answer', async (req, res) => {
                     [
                     {"id": "question_id_1", "answer": "option text"},
                     {"id": "question_id_2", "answer": ["option1", "option2"]},
-                    {"id": "question_id_3", "answer": "text response"}
+                    {"id": "question_id_3", "answer": ""},
+                    {"id": "question_id_4", "answer": "factual answer"}
                     ]
 
                     Do not include any explanations, markdown formatting, or extra text.`;
