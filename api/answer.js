@@ -1,25 +1,23 @@
-const dotenv = require('dotenv');
+import axios from 'axios';
+import dotenv from 'dotenv';
+
 dotenv.config();
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const axios = require('axios');
-const app = express();
-app.use(cors());
-app.use(bodyParser.json());
-const PORT = process.env.PORT;
-app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', time: Date.now() });
-});
+
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-app.post('/api/answer', async (req, res) => {
+
+export default async function handler(req, res) {
+    if (req.method !== 'POST') {
+        return res.status(405).json({ error: 'Method Not Allowed' });
+    }
+
     const payload = req.body || {};
     const questions = Array.isArray(payload.questions)
         ? payload.questions
         : payload.question
             ? [payload]
             : [];
+
     if (!GEMINI_KEY || GEMINI_KEY === 'YOUR_API_KEY_HERE') {
         const results = questions.map(q => ({
             questionId: q.id || null,
@@ -30,6 +28,7 @@ app.post('/api/answer', async (req, res) => {
         }));
         return res.json({ received: true, results });
     }
+
     const prompt = `You are given questions in JSON format. Each question has a "type" field that can be:
                     - "multiple_choice": Select one option from the provided options
                     - "checkbox": Select one or more options from the provided options (answer should be an array)
@@ -67,6 +66,7 @@ app.post('/api/answer', async (req, res) => {
             maxOutputTokens: 4096,
         },
     };
+
     try {
         const resp = await axios.post(url, body, { headers, timeout: 30000 });
         const candidates = resp.data?.candidates;
@@ -134,7 +134,4 @@ app.post('/api/answer', async (req, res) => {
         }));
         res.json({ received: true, results });
     }
-});
-app.get('/', (req, res) => res.send('GF helper server running'));
-app.get('/health', (req, res) => res.send({ status: 'OK', time: Date.now() }));
-app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
+}
